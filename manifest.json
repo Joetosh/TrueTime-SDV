@@ -1,0 +1,10 @@
+{
+  "Name": "TrueTime",
+  "Author": "Joetosh",
+  "Version": "1.0.0",
+  "Description": "Changes time to real time",
+  "UniqueID": "Joetosh.TrueTime",
+  "EntryDll": "TrueTime.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
