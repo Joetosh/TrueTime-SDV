@@ -1,4 +1,4 @@
-# sdv-TrueTime
+# TrueTime-SDV
 
 
 It's a stardew valley mod that changes the game to use your local time, it is partially inspired by the how time works in animal crossing.
