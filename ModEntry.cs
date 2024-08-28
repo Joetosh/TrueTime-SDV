@@ -4,73 +4,73 @@ using StardewValley;
 
 namespace TrueTime;
 
-public sealed class ModConfig {
-  public Dictionary<ulong, DateTime> LogTimes { get; set; } = new();
+public sealed class ModConfig
+{
+    public Dictionary<ulong, DateTime> LogTimes { get; set; } = new();
 }
 
-internal sealed class ModEntry : Mod {
-  private ModConfig? _config = new();
+internal sealed class ModEntry : Mod
+{
+    private ModConfig? _config;
 
-  // public methods
-  public override void Entry(IModHelper helper) {
-    helper.Events.GameLoop.OneSecondUpdateTicked += OnUpdate;
-    helper.Events.GameLoop.SaveLoaded += OnLoadSave;
-    helper.Events.GameLoop.Saved += OnSave;
-  }
-
-  // private methods
-  private static void OnUpdate(object? sender,
-                               OneSecondUpdateTickedEventArgs e) {
-    if (!Context.IsWorldReady)
-      return;
-
-    Game1.timeOfDay = DateTime.Now.Hour * 100 + DateTime.Now.Minute;
-  }
-
-  private void OnLoadSave(object? sender, SaveLoadedEventArgs e) {
-    Game1.gameTimeInterval = 0;
-
-    _config = Helper.ReadConfig<ModConfig>();
-    // checks if save hasn't time data
-    if (!_config.LogTimes.ContainsKey(Game1.uniqueIDForThisGame))
-      return;
-    var timeInterval =
-        DateTime.Now.Subtract(_config.LogTimes[Game1.uniqueIDForThisGame]).Days;
-    // check if at least a day hasn't passed
-    if (timeInterval < 0)
-      return;
-    TimeTravel(timeInterval);
-    Game1.addHUDMessage(new HUDMessage(
-        $"It's been {Game1.year} years and {Game1.dayOfMonth} days since you left the {Game1.player.farmName} farm."));
-  }
-
-  private void OnSave(object? sender, SavedEventArgs e) {
-    _config.LogTimes.Add(Game1.uniqueIDForThisGame, DateTime.Today.Date);
-    Helper.WriteConfig(_config);
-  }
-
-  private void TimeTravel(int interval) {
-    Game1.year = interval / 112;
-    var seasonIndex = Game1.dayOfMonth = interval % 112;
-
-    switch (seasonIndex) {
-    case int n when n <= 28:
-      Game1.season = Season.Spring;
-      break;
-    case int n when n <= 56:
-      Game1.season = Season.Summer;
-      Game1.dayOfMonth -= 28;
-      break;
-    case int n when n <= 84:
-      Game1.season = Season.Fall;
-      Game1.dayOfMonth -= 56;
-      break;
-    case int n when n <= 112:
-      Game1.season = Season.Winter;
-      Game1.dayOfMonth -= 84;
-      break;
+    // Public methods
+    public override void Entry(IModHelper helper)
+    {
+        helper.Events.GameLoop.OneSecondUpdateTicked += OnUpdate;
+        helper.Events.GameLoop.SaveLoaded += OnLoadSave;
+        helper.Events.GameLoop.Saved += OnSave;
     }
 
-    Game1.setGraphicsForSeason();
-  }
+    // Private methods
+    private void OnUpdate(object? sender,
+        OneSecondUpdateTickedEventArgs e)
+    {
+        if (!Context.IsWorldReady || Context.IsMultiplayer)
+            return;
+        // A fix to be able to play the game after midnight
+        Game1.timeOfDay = DateTime.Now.Hour < 6 ? 2400 : DateTime.Now.Hour * 100 + DateTime.Now.Minute;
+    }
+
+    private void OnLoadSave(object? sender, SaveLoadedEventArgs e)
+    {
+        Game1.gameTimeInterval = 0;
+
+        _config = Helper.ReadConfig<ModConfig>();
+        // checks if save has time data
+        if (!_config.LogTimes.TryGetValue(Game1.uniqueIDForThisGame, out var time))
+            return;
+        var timeInterval =
+            DateTime.Now.Subtract(time).Days;
+        Monitor.Log($"{timeInterval}");
+        // check if at least a day has passed
+        if (timeInterval < 1)
+            return;
+        TimeTravel(timeInterval);
+        Game1.addHUDMessage(new HUDMessage(
+            $"It's been {Game1.year} years and {Game1.dayOfMonth} days since you left the {Game1.player.farmName} farm."));
+    }
+
+    private void OnSave(object? sender, SavedEventArgs e)
+    {
+        _config ??= new ModConfig();
+        _config.LogTimes[Game1.uniqueIDForThisGame] = DateTime.Now.Date;
+        Helper.WriteConfig(_config);
+    }
+
+    private static void TimeTravel(int interval)
+    {
+        Game1.year = interval / 112;
+        var seasonIndex = Game1.dayOfMonth = interval % 112;
+
+        Game1.season = seasonIndex switch
+        {
+            <= 28 => Season.Spring,
+            <= 56 => Season.Summer,
+            <= 84 => Season.Fall,
+            <= 112 => Season.Winter,
+            _ => Game1.season
+        };
+        Game1.dayOfMonth -= 28 * (int)Game1.season;
+        Game1.setGraphicsForSeason();
+    }
 }
